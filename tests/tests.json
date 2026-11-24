@@ -1,0 +1,177 @@
+[
+  {
+    "name": "New expense defaults to device local date and records creation time",
+    "sanity": true,
+    "viewport": "desktop",
+    "covers": [
+      "default expense date",
+      "creation timestamp",
+      "recent expenses date and time"
+    ],
+    "description": "The Add Expense form starts with the current local calendar date and the recent table displays added time.",
+    "steps": [
+      "Sign in and open Add Expense",
+      "Inspect Date field without selecting any date",
+      "Create an expense and open Overview",
+      "Inspect Recent expenses date cell"
+    ],
+    "expected": "Date is preselected to the device's current local calendar day. The new expense has a readable added-at time below the date in Recent expenses."
+  },
+  {
+    "name": "Editing does not overwrite creation time",
+    "viewport": "desktop",
+    "covers": [
+      "immutable created-at timestamp",
+      "expense editing",
+      "original date preservation"
+    ],
+    "description": "Editing an expense may change the expense date but preserves its original creation timestamp.",
+    "steps": [
+      "Create a new expense and note its Recent Expenses added-at time",
+      "Edit the expense and update description and expense date",
+      "Return to Overview"
+    ],
+    "expected": "Expense date reflects edit, while original creation time stays the same."
+  },
+  {
+    "name": "Historical expenses render without fabricated times",
+    "viewport": "mobile",
+    "covers": [
+      "legacy expense compatibility",
+      "mobile recent expenses"
+    ],
+    "description": "Old records lacking createdAt remain visible without inventing a creation time.",
+    "steps": [
+      "Open workspace with expenses saved before createdAt was introduced",
+      "Inspect Recent expenses list on mobile",
+      "Edit one historical expense"
+    ],
+    "expected": "Historical entries display their expense date without an invented time; editing does not add a fake creation timestamp."
+  },
+  {
+    "name": "Shared balances and parent ownership remain intact",
+    "viewport": "desktop",
+    "covers": [
+      "shared expense account permissions",
+      "net calculation",
+      "date change"
+    ],
+    "description": "Time metadata does not affect reimbursement calculations or access permissions.",
+    "steps": [
+      "Parent A creates $200 expense at 50% share",
+      "Parent B creates $120 expense at 50% share",
+      "Inspect totals and actions"
+    ],
+    "expected": "Net Parent B owes Parent A $40. Each parent can edit only their own expenses; date/time remains visible."
+  },
+  {
+    "name": "Premium sidebar and mobile five-tab navigation",
+    "sanity": true,
+    "viewport": "mobile",
+    "covers": [
+      "premium sidebar",
+      "bottom navigation",
+      "mobile expense cards",
+      "responsive layout",
+      "navigation access"
+    ],
+    "description": "Five sections remain accessible on desktop and mobile with redesigned navigation and clean expense cards.",
+    "steps": [
+      "Sign in and view dashboard",
+      "Check Overview Expenses Payments Report and Settings tabs on mobile",
+      "Add expense and examine recent expense card",
+      "Switch to tablet and desktop widths"
+    ],
+    "expected": "All navigation remains usable and financial information fits without horizontal page overflow."
+  },
+  {
+    "name": "Co-parent expense notifications and pending balances",
+    "sanity": true,
+    "viewport": "desktop",
+    "covers": [
+      "other-parent expense notifications",
+      "unread notification badge",
+      "account-scoped read state",
+      "pending reimbursement balance"
+    ],
+    "description": "Parent A sees Parent B's newly added expense in the bell menu; reading it persists and personal pending dues are displayed.",
+    "steps": [
+      "Sign in with two linked parents in separate sessions",
+      "Parent B creates expense",
+      "Wait 30 seconds or refresh Parent A",
+      "Open notification bell and mark item read",
+      "Refresh and inspect pending amount"
+    ],
+    "expected": "Only the other parent gets the expense alert, marking read persists, and each account sees the correct amount they owe."
+  },
+  {
+    "name": "Mobile notification bell and responsive logo",
+    "viewport": "mobile",
+    "covers": [
+      "premium logo",
+      "favicon",
+      "mobile notification panel",
+      "mobile pending indicator"
+    ],
+    "description": "At narrow phone widths the logo and header notification controls remain usable.",
+    "steps": [
+      "Open the app at a 375px viewport",
+      "Inspect logo pending chip and bell",
+      "Open bell and view pending and awaiting amounts"
+    ],
+    "expected": "Header and notification panel fit phone width, with no horizontal overflow."
+  },
+  {
+    "name": "Sidebar logo and personalized user welcome",
+    "viewport": "desktop",
+    "covers": [
+      "brand logo at sidebar top",
+      "personalized welcome header",
+      "profile name propagation",
+      "responsive identity placement"
+    ],
+    "description": "The CoParent logo and brand title are in the desktop sidebar, while the main header greets the signed-in user with their saved profile display name.",
+    "steps": [
+      "Sign in with a test user and set a custom display name in My Profile",
+      "Open Overview and verify logo and brand in the left sidebar",
+      "Verify header reads Welcome back followed by saved profile name",
+      "Resize to tablet and mobile viewports and inspect navigation"
+    ],
+    "expected": "Desktop shows logo only in sidebar, header welcomes the correct signed-in parent, tablet rail retains brand icon, and narrow mobile header remains readable with bell and pending indicator."
+  },
+  {
+    "name": "Header aligns flush to viewport top and main content left edge",
+    "viewport": "mobile",
+    "covers": [
+      "zero external header top gap",
+      "zero external header left gap",
+      "responsive dashboard spacing"
+    ],
+    "description": "Header spans flush to the top and left outer content boundaries while its welcome text and notification controls retain comfortable inner padding.",
+    "steps": [
+      "Sign in and inspect overview at desktop width",
+      "Check header top touches main content top and left edge aligns with sidebar boundary",
+      "Resize to 375px mobile and inspect top/left header edges",
+      "Check dashboard cards and notification bell are still accessible"
+    ],
+    "expected": "No external top or left whitespace around header, no horizontal overflow, and inner header elements remain readable at all widths."
+  },
+  {
+    "name": "Full width header and clean pages without redundant heading",
+    "viewport": "desktop",
+    "covers": [
+      "zero header right outer gap",
+      "removal of page head title and subtitle",
+      "preserved create and print actions",
+      "responsive header"
+    ],
+    "description": "Header aligns edge-to-edge in main viewport with no outer gaps. Individual pages omit redundant header blocks but retain functional action buttons.",
+    "steps": [
+      "Sign in and inspect desktop header right edge at 1440px",
+      "Open Overview, Expenses, Payments, Report, Settings, and expense form",
+      "Verify no .head page titles/subtitles are shown and Add Expense, Record Payment, and Print still work",
+      "Check 375px mobile layout for overflow"
+    ],
+    "expected": "Header is flush to right edge, no page-specific heading/subtitle appears, all essential buttons remain accessible, and mobile viewport remains clean."
+  }
+]
