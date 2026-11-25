@@ -1,8 +1,9 @@
 """Package only reviewed source/config/documentation/build roots, never local data."""
 from pathlib import Path
+import sys
 import zipfile
 root=Path(__file__).resolve().parent.parent
-output=root/'artifacts'/'CoParent_Expense_Manager_Phase2_Production_Preparation.zip'
+output=root/'artifacts'/(sys.argv[1] if len(sys.argv)>1 else 'CoParent_Expense_Manager_Phase2_Production_Preparation.zip')
 output.parent.mkdir(exist_ok=True)
 files=[root/name for name in ['.env.example','.gitignore','index.html','package.json','package-lock.json','README.md','tailwind.config.js','tsconfig.json','vite.config.ts']]
 for name in ['src','server','backend','public','scripts','tests','docs','dist','ops']:

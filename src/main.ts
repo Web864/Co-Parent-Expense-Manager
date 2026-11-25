@@ -728,7 +728,7 @@ function wire() {
     sendInviteEmail.textContent='Sending…';
     try {
       const result=await api.post('/api/email/invite',{email:inviteEmail,code:inviteCode,url:inviteLink});
-      emailStatus=result.data.accepted ? 'Email accepted by the delivery provider. Check recipient inbox and spam folder.' : 'Email was not accepted.';
+      emailStatus=result.data.accepted ? 'Email accepted for sending. Delivery is not guaranteed: ask the recipient to check their inbox and spam folder, or copy the link.' : 'Email was not accepted.';
       render();
     } catch(err) {
       emailStatus='Email could not be sent. Copy the link instead. ' + (err?.message || '');

@@ -1,15 +1,17 @@
 'use strict';
 const crypto=require('node:crypto');
 const {hashPassword,passwordMatches,passwordValid,sha}=require('./security.cjs');
+const {logMailFailure}=require('./mail.cjs');
 const GENERIC='If the address is eligible, an email will arrive with the next steps. Check your inbox and spam folder.';
+const DEV_NOTICE=' Development mail mode: no real email is sent. Messages are saved only to the private local mail sink on this machine.';
 const POLICY_VERSION='2026-11-24-draft';
 const tokenValid=t=>typeof t==='string'&&/^[a-f0-9]{64}$/.test(t);
 const publicUser=u=>({userId:u.id,email:u.email,name:u.name,emailVerified:!!u.email_verified_at,legacyAccess:!u.verification_required});
 const verified=u=>!!u.email_verified_at||!u.verification_required;
 function requireVerified(u,error){if(!verified(u))error(403,'Verify your email before using this account feature.');}
-function createAccounts({pool,transaction,body,json,error,email,text,origin,session,cookie,limit,mailer,env,workspace}){
+function createAccounts({pool,transaction,body,json,error,email,text,origin,session,cookie,limit,mailer,env,workspace,clientIp=r=>r.socket.remoteAddress}){
  const max=Number(env.AUTH_RATE_LIMIT_MAX||18);
- async function authLimit(req,action){await limit(action+'-ip',req.socket.remoteAddress,max,900);}
+ async function authLimit(req,action){await limit(action+'-ip',clientIp(req),max,900);}
  async function issue(user,kind){
   const token=crypto.randomBytes(32).toString('hex');
   const issued=await transaction(async q=>{
@@ -21,10 +23,10 @@ function createAccounts({pool,transaction,body,json,error,email,text,origin,sess
   if(!issued)return;
   // Fragment tokens are not sent as HTTP URL paths, query strings or Referrer headers.
   const link=origin+'/#/account/'+kind+'?token='+token;
-  setImmediate(()=>{void mailer.send({to:user.email,subject:kind==='verify'?'Verify your CoParent email':'Reset your CoParent password',text:(kind==='verify'?'Verify your email within 24 hours: ':'Reset your password within 30 minutes: ')+link+'\nIf you did not request this, ignore this message.'}).catch(()=>console.error('[mail] Account email delivery failed.'));});
+  setImmediate(()=>{void mailer.send({to:user.email,subject:kind==='verify'?'Verify your CoParent email':'Reset your CoParent password',text:(kind==='verify'?'Verify your email within 24 hours: ':'Reset your password within 30 minutes: ')+link+'\nIf you did not request this, ignore this message.'}).catch(e=>logMailFailure(kind,e));});
  }
  async function consume(req,x,kind){
-  await limit(kind+'-submit',req.socket.remoteAddress,Number(env.TOKEN_RATE_LIMIT_MAX||20),900);
+  await limit(kind+'-submit',clientIp(req),Number(env.TOKEN_RATE_LIMIT_MAX||20),900);
   if(!tokenValid(x.token))error(400,'This link is invalid, expired or already used. Request a new link.');
   if(kind==='reset'&&!passwordValid(x.password))error(400,'Use a password between 10 and 128 characters.');
   const found=await pool.query('SELECT user_id FROM cp_action_tokens WHERE token_hash=$1 AND kind=$2',[sha(x.token),kind]);
@@ -45,11 +47,11 @@ function createAccounts({pool,transaction,body,json,error,email,text,origin,sess
   if(p==='/api/public/config'&&m==='GET'){json(res,200,{supportUrl:env.SUPPORT_URL||null,policyVersion:POLICY_VERSION,policiesDraft:true});return true;}
   if(p==='/api/auth/signup'&&m==='POST'){
    await authLimit(req,'signup');const x=await body(req);
-   if(!email(x.email)||!text(x.name,50)||!passwordValid(x.password)||x.policyAcknowledged!==true||x.policyVersion!==POLICY_VERSION)error(400,'Enter a name, valid email, password of 10–128 characters, and acknowledge the draft policies.');
+   if(!email(x.email)||!text(x.name,50)||!passwordValid(x.password)||x.policyAcknowledged!==true||x.policyVersion!==POLICY_VERSION)error(400,'Enter a name, valid email, password of 10 to 128 characters, and acknowledge the draft policies.');
    const address=x.email.trim().toLowerCase(),hash=await hashPassword(x.password),id=crypto.randomUUID();
    const result=await pool.query(`INSERT INTO cp_users(id,email,name,password_hash,verification_required,policy_acknowledged_at,policy_version) VALUES($1,$2,$3,$4,true,now(),$5) ON CONFLICT(email) DO NOTHING RETURNING id,email`,[id,address,x.name.trim(),hash,POLICY_VERSION]);
    if(result.rows[0])await issue(result.rows[0],'verify');
-   json(res,201,{message:GENERIC});return true;
+   json(res,201,{message:GENERIC+(mailer.mode==='development'?DEV_NOTICE:'')});return true;
   }
   if(p==='/api/auth/login'&&m==='POST'){
    await authLimit(req,'login');const x=await body(req);
@@ -71,7 +73,7 @@ function createAccounts({pool,transaction,body,json,error,email,text,origin,sess
     const {rows}=await pool.query("SELECT id,email FROM cp_users WHERE email=$1 AND account_status='active'",[address]);if(rows[0])await issue(rows[0],kind);
    }
    await new Promise(resolve=>setTimeout(resolve,Math.max(0,200-(Date.now()-began))));
-   json(res,202,{message:GENERIC});return true;
+   json(res,202,{message:GENERIC+(mailer.mode==='development'?DEV_NOTICE:'')});return true;
   }
   if(['/api/auth/verify-email','/api/auth/reset-password'].includes(p)&&m==='POST'){
    const kind=p.endsWith('verify-email')?'verify':'reset';await consume(req,await body(req),kind);
