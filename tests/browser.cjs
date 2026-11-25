@@ -6,8 +6,8 @@ const {app:server,pool}=require('../server/index.cjs');
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({headless:true});
  fs.mkdirSync(path.join(__dirname,'../artifacts'),{recursive:true});
  const page=await browser.newPage();
- // External Google Fonts cannot be reached in the sandbox; test layout with the existing fallback stack.
- await page.route('https://fonts.googleapis.com/**',route=>route.fulfill({contentType:'text/css',body:'/* offline font fixture */'}));let checks=0;const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+ // DM Sans is self-hosted: no third-party request is allowed or stubbed. Record any non-local request.
+ const external=[];page.on('request',r=>{if(!/^(http:\/\/127\.0\.0\.1|data:|blob:)/.test(r.url()))external.push(r.url());});let checks=0;const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
  const state={expenses:[{id:'e1',date:'2026-11-24',description:'School supplies',child:'QA child',category:'Education',payer:'b',amount:10.01,shareA:50,createdBy:'qa-b',createdAt:'2026-11-24T10:00:00Z'}],payments:[],names:{a:'Parent A',b:'Parent B'}};
  let custom=true;let revision=0;let archived=false;
  await page.route('**/api/**',async route=>{const req=route.request(),url=new URL(req.url()),method=req.method();let data={};
@@ -66,7 +66,13 @@ const {app:server,pool}=require('../server/index.cjs');
  archived=true;await page.goto('http://127.0.0.1:'+server.address().port+'/#/settings');await page.reload();await page.locator('#accountExport').waitFor();assert.equal(await page.locator('#reset').count(),0);assert.equal(await page.locator('#invitationForm').count(),0);assert.ok((await page.locator('body').innerText()).includes('read-only'));checks++;
  await page.evaluate(()=>location.hash='/addExpense');await page.waitForTimeout(50);assert.equal(await page.locator('#expenseForm').count(),0);assert.ok((await page.locator('body').innerText()).includes('Archived workspace'));checks++;
  assert.deepEqual(errors,[]);checks++;
+ // Self-hosted font delivery: loaded from this origin as WOFF2, strict CSP without Google, no external requests.
+ await page.goto('http://127.0.0.1:'+server.address().port+'/#/dashboard');await page.waitForTimeout(100);
+ assert.ok(await page.evaluate(async()=>{await document.fonts.ready;return document.fonts.check('16px "DM Sans"')&&[...document.fonts].some(f=>f.family.replace(/"/g,'')==='DM Sans'&&f.status==='loaded');}),'DM Sans did not load from self-hosted files');checks++;
+ assert.deepEqual(external,[],'unexpected third-party requests');checks++;
+ {const html=await fetch('http://127.0.0.1:'+server.address().port+'/');const csp=html.headers.get('content-security-policy')||'';assert.ok(!/googleapis|gstatic/.test(csp)&&/font-src 'self'(;|$)/.test(csp)&&/style-src 'self' 'unsafe-inline'(;|$)/.test(csp),csp);checks++;
+  const link=(await html.text()).match(/rel="preload" href="([^"]+\.woff2)"/);assert.ok(link,'font preload link missing');const font=await fetch('http://127.0.0.1:'+server.address().port+link[1]);assert.equal(font.headers.get('content-type'),'font/woff2');assert.match(font.headers.get('cache-control'),/immutable/);checks++;}
  fs.mkdirSync(path.join(__dirname,'../artifacts'),{recursive:true});await page.screenshot({path:path.join(__dirname,'../artifacts/qa-dashboard.png'),fullPage:true});
- console.log(JSON.stringify({status:'PASS',checks,widths:results,consoleErrors:errors,fontDelivery:'NOT TESTED: external font request stubbed offline',scope:'Browser UI with isolated API fixtures; financial API behavior tested separately'},null,2));
+ console.log(JSON.stringify({status:'PASS',checks,widths:results,consoleErrors:errors,fontDelivery:'PASS: self-hosted WOFF2 loaded, preloaded, immutable cache, no third-party requests, CSP without Google hosts',scope:'Browser UI with isolated API fixtures; financial API behavior tested separately'},null,2));
  }finally{await browser.close();await new Promise(r=>server.close(r));await pool.end();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1});

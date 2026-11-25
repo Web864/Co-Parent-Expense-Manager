@@ -1,4 +1,6 @@
 // @ts-nocheck
+import './fonts.css';
+import './tokens.css';
 import './styles.css';
 import './auth.css';
 import './account.css';

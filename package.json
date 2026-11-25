@@ -24,7 +24,8 @@
     "account:complete-deletion": "node scripts/complete-deletion.cjs",
     "backup:validate": "node scripts/validate-restore.cjs",
     "benchmark:auth": "node scripts/benchmark-auth.cjs",
-    "maintenance:cleanup": "node scripts/cleanup.cjs"
+    "maintenance:cleanup": "node scripts/cleanup.cjs",
+    "test:ui": "node tests/ui-audit.cjs contrast && node tests/ui-audit.cjs responsive"
   },
   "dependencies": {
     "pg": "^8.13.1"
