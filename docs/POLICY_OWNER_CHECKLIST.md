@@ -12,7 +12,7 @@ The in-app templates in src/policies.ts are visibly marked drafts. New signup ac
 - Deletion review SLA, verified identity checks, support escalation, backup expiration, private downloads/browser caches and how completed deletions are replayed after restore.
 - Define operator authorization for the completion command and a private external deletion register; rehearse member and owner cases. Archival is not ownership transfer or erasure of shared history.
 - Account recovery and verification sender identity, provider delivery/spam handling, support for undeliverable addresses and suspected compromise.
-- Google Fonts availability/privacy: verify the existing external font resource or review a separately approved self-hosting change.
+- Fonts: DM Sans is now self-hosted (no Google Fonts request, so no visitor IP is sent to Google). Keep `src/fonts/OFL-DM-Sans.txt` with any distribution.
 - Accessibility review, support/incident ownership, breach response and host monitoring/backup alert destinations.
 - If selling access, finalize pricing, entitlements, cancellation/refund/support commitments and commercial terms. No billing/access-entitlement system was added in Phase 2.
 - Replace draft product copy with owner/legal-approved text; update frontend/backend policy version together, and decide acknowledgment requirements for existing accounts. Do not merely remove the word Draft.

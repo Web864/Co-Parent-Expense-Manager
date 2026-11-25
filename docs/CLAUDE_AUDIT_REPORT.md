@@ -27,7 +27,7 @@ Fixes made: proxy-safe rate limiting, diagnosable mail failures, honest developm
 - **P2:** Account emails are sent fire-and-forget after the response, with no durable outbox or automatic retry. A provider outage means the user must use the rate-limited resend. Needs a product decision (queue or job table).
 - **P3:** Login is limited per email as well as per IP, so someone can deliberately trigger lockouts for a known address (15-minute window). Standard trade-off; consider CAPTCHA or progressive delay.
 - **P3:** Sessions are fixed 30-day with no idle timeout or rotation; cookie is not `__Host-` prefixed; HSTS has no `includeSubDomains`/preload. Acceptable for private beta.
-- **P3:** CSP allows Google Fonts. Font delivery under CSP was stubbed in tests and is NOT TESTED against the real service; self-hosting the fonts would remove the external dependency.
+- **P3 (resolved in the UI/UX pass below):** fonts are now self-hosted and the CSP no longer allows Google.
 - **Note:** the shared ledger is one JSONB document per workspace, capped at 500 expenses and 1000 payments. Fine for the current scope; revisit before heavy use.
 
 ## Test evidence (re-run this session)
@@ -68,3 +68,22 @@ Resend account, API key and verified sending domain; real send test to an author
 | Paid commercial launch | NO: no billing/entitlements; plus all of the above |
 
 Unchanged from `docs/LAUNCH_GATES.md`; this audit found no reason to raise or lower any verdict.
+
+## UI/UX pass (25 November 2026, commit on `claude/audit-fixes`)
+
+Scope: contrast, small text, reduced motion, self-hosted font, design tokens, responsive QA. Dark mode, RTL, backend, database and financial logic were not touched. Branding, sidebar, header and dashboard layout are unchanged.
+
+| ID | Priority | Issue | Action | Verification |
+|---|---|---|---|---|
+| U-01 | P2 | 22 text/background pairs below AA, measured per element against the real composited background (gradients worst-case, opacity applied). | Muted greys, eyebrow, status chips and unread badge moved to tokens that pass 4.8:1 or better on every surface they appear on. | `tests/ui-audit.cjs contrast`: 1,172 text nodes, 0 failures (was 22). |
+| U-02 | P2 | Focus ring `#79bdb1` was 2.2:1 on white (WCAG 1.4.11 needs 3:1). Four slightly different ring colours. | One `--cp-focus-ring` (#2b7e6f, 4.9:1); consistent 3px ring for links, inputs, selects, textareas. | 122 Tab stops at 1280 and 375 px: all have a visible indicator and none is obscured. |
+| U-03 | P2 | 18 kinds of text at 9 to 11.5px, including bottom-nav labels, table headers and amounts. | Floor of 12px (`--cp-fs-xs`); sidebar tagline now wraps instead of clipping. | 0 text under 12px; no horizontal overflow on 7 views at 14 widths. |
+| U-04 | P3 | No `prefers-reduced-motion` handling. | Global reduce rule (instant transitions, no smooth scroll). | With reduce emulated: 0 elements still animating. |
+| U-05 | P2 | DM Sans loaded from Google (render-blocking `@import`, third-party request, CSP exceptions). | Self-hosted variable WOFF2 (latin 37 KB, latin-ext 18 KB, loaded only when needed), `font-display: swap`, preload of the latin file, OFL licence kept. Weight range capped at 700 so existing 750/800 rules look as before. CSP now `style-src 'self' 'unsafe-inline'; font-src 'self'`. Hashed `/assets/` files are cacheable (immutable); `.woff2` served as `font/woff2`. | Browser suite: font loaded, no third-party requests, CSP and MIME and cache headers asserted. |
+| U-06 | P3 | Hardcoded values (147 distinct hex colours, ad hoc radii/sizes/spacing). | `src/tokens.css`: type, weight, spacing, radius, and the repeated or measured colours; CSS rewritten to use them. | Pixel diff vs baseline: all non-radius substitutions identical (34 of 37 images exact; 3 differ by at most 13 pixels at 1/255). |
+
+Visual-fidelity notes: radii were snapped by at most 1px onto a 7-step scale (about 0.1% of pixels differ, corners only). Earlier sandbox screenshots used a fallback font because Google was unreachable, so before/after comparisons include the real DM Sans.
+
+Results (this pass): `tsc` clean, build OK, unit 16/16, accounts 25/25, integration 24/24, browser 217 checks (213 + 4 new), e2e 29. UI audit: 98 width/view checks including 2560px; 200% and 400% zoom reflow (1280 and 1920 base, plus 200% root text size) with no horizontal scroll; forced-colors and reduced-motion emulation.
+
+Limits: the contrast scan covers rendered text in the tested screens and states, not placeholders, hover/disabled states or pseudo-element text. Forced-colors was checked by a heuristic (controls keep a border, outline or fill), not by visual review. 400% zoom was emulated with a narrower viewport. No screen reader, real-device, Core Web Vitals or Windows high-contrast testing. About 110 one-off colour literals remain in the CSS (near-duplicate shades that would change appearance if merged). The font has no metric-matched fallback, so a brief layout shift is possible before it loads; the preload makes this unlikely but it was not measured.

@@ -1,19 +1,19 @@
 ﻿/* Generated using AppDeploy UI skill */
 .cp-account-panel{max-width:760px;margin-top:20px;overflow-wrap:anywhere}
 .cp-account-panel .toolbar{flex-wrap:wrap}
-.cp-account-panel button,#accountTokenForm button{min-height:42px;padding:10px 14px;border-radius:10px}
-.cp-policy-page{max-width:850px;margin:30px auto;padding:24px;overflow-wrap:anywhere}
+.cp-account-panel button,#accountTokenForm button{min-height:42px;padding:10px 14px;border-radius:var(--cp-radius-md)}
+.cp-policy-page{max-width:850px;margin:30px auto;padding:var(--cp-space-5);overflow-wrap:anywhere}
 .cp-policy-page h1{line-height:1.25;font-size:clamp(23px,5vw,32px)}
-.cp-policy-page h2{font-size:19px;margin-top:24px}
+.cp-policy-page h2{font-size:19px;margin-top:var(--cp-space-5)}
 .cp-policy-page p{line-height:1.7}
-.cp-policy-links{display:flex;flex-wrap:wrap;gap:8px 15px;margin-top:20px;font-size:12px}
+.cp-policy-links{display:flex;flex-wrap:wrap;gap:var(--cp-space-2) 15px;margin-top:20px;font-size:var(--cp-fs-xs)}
 .cp-policy-links a,.cp-policy-page a{color:#176f64;text-underline-offset:3px}
-#accountTokenForm{display:grid;gap:12px}
-#accountTokenForm input{min-height:44px;width:100%;padding:10px;border:1px solid #cbded5;border-radius:10px}
-#cp-auth-form #cp-policy-label{display:flex;align-items:flex-start;font-weight:400;line-height:1.5}
+#accountTokenForm{display:grid;gap:var(--cp-space-3)}
+#accountTokenForm input{min-height:44px;width:100%;padding:10px;border:1px solid var(--cp-border-input);border-radius:var(--cp-radius-md)}
+#cp-auth-form #cp-policy-label{display:flex;align-items:flex-start;font-weight:var(--cp-fw-regular);line-height:1.5}
 #cp-auth-form #cp-policy-label[hidden]{display:none}
 #cp-auth-form #cp-policy-ack{width:18px;min-height:18px;flex:0 0 18px;margin-top:2px}
-@media(max-width:600px){.cp-policy-page{margin:12px;padding:16px}.cp-account-panel .toolbar button{width:100%}}
+@media(max-width:600px){.cp-policy-page{margin:var(--cp-space-3);padding:var(--cp-space-4)}.cp-account-panel .toolbar button{width:100%}}
 
 .panel .toolbar{flex-wrap:wrap;max-width:100%}.panel .toolbar button{max-width:100%;white-space:normal}
 

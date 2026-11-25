@@ -176,8 +176,8 @@ function staticFile(req,res,pathname){
  if(!/^[a-zA-Z0-9_./-]+$/.test(rel)||rel.includes('..')||rel.split('/').some(part=>part.startsWith('.')))return json(res,404,{error:'Not found.'});
  let file=path.join(root,'dist',rel);if(!fs.existsSync(file)&&!path.extname(rel))file=path.join(root,'dist','index.html');
  if(!fs.existsSync(file)||!fs.statSync(file).isFile())return json(res,404,{error:'Not found. If the app was never built, run npm run build.'});
- const types={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'};
- const data=fs.readFileSync(file);res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",'Content-Length':data.length,'Cache-Control':'no-cache'});res.end(data);
+ const types={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon','.woff2':'font/woff2'};
+ const data=fs.readFileSync(file);res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",'Content-Length':data.length,'Cache-Control':/^assets\/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]{8}\.[a-z0-9]+$/.test(rel)?'public, max-age=31536000, immutable':'no-cache'});res.end(data);
 }
 const app=http.createServer(async(req,res)=>{
  const requestId=uid();res.setHeader('X-Request-ID',requestId);

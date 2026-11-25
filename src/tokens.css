@@ -1,0 +1,50 @@
+/* Design tokens. Values mirror the original AppDeploy look; change them here, not in component rules. */
+:root {
+  /* Typography */
+  --cp-font-sans: 'DM Sans', system-ui, sans-serif;
+  --cp-fs-xs: 12px;
+  --cp-fs-sm: 13px;
+  --cp-fs-md: 14px;
+  --cp-fs-base: 16px;
+  --cp-fs-lg: 18px;
+  --cp-fs-xl: 20px;
+  --cp-fs-2xl: 24px;
+  --cp-fw-regular: 400;
+  --cp-fw-medium: 500;
+  --cp-fw-semibold: 600;
+  --cp-fw-bold: 700; /* 750/800 in the original rules rendered as 700 */
+  /* Spacing */
+  --cp-space-1: 4px;
+  --cp-space-2: 8px;
+  --cp-space-3: 12px;
+  --cp-space-4: 16px;
+  --cp-space-5: 24px;
+  --cp-space-6: 32px;
+  /* Radius */
+  --cp-radius-xs: 6px;
+  --cp-radius-sm: 8px;
+  --cp-radius-md: 10px;
+  --cp-radius-lg: 12px;
+  --cp-radius-xl: 16px;
+  --cp-radius-2xl: 18px;
+  --cp-radius-pill: 99px;
+  /* Colour: surfaces, text, borders, brand, status, focus */
+  --cp-surface: #fff;
+  --cp-surface-tint: #f3faf6;
+  --cp-text-strong: #28414c;
+  --cp-text-on-accent: #fff;
+  --cp-brand: #287e79;
+  --cp-brand-strong: #227773;
+  --cp-border: #dce5e2;
+  --cp-border-subtle: #e2e9e6;
+  --cp-border-brand-soft: #cbe7dc;
+  --cp-border-input: #cbded5;
+  --cp-danger: #ad4847;
+  /* Text colours measured for AA (>=4.5:1) on every surface they appear on, incl. #e6f5ef and #e4eff5 */
+  --cp-text-muted: #596972;
+  --cp-text-accent: #2b7e6f;
+  --cp-status-pending-text: #806237;
+  --cp-status-partial-text: #3f6d84;
+  --cp-danger-badge: #bf4d3f; /* white text 4.8:1 */
+  --cp-focus-ring: #2b7e6f; /* 4.9:1 on white; the old #79bdb1 was 2.2:1 (WCAG 1.4.11 needs 3:1) */
+}
