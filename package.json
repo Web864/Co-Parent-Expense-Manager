@@ -23,7 +23,8 @@
     "test:accounts": "node --test tests/accounts.cjs",
     "account:complete-deletion": "node scripts/complete-deletion.cjs",
     "backup:validate": "node scripts/validate-restore.cjs",
-    "benchmark:auth": "node scripts/benchmark-auth.cjs"
+    "benchmark:auth": "node scripts/benchmark-auth.cjs",
+    "maintenance:cleanup": "node scripts/cleanup.cjs"
   },
   "dependencies": {
     "pg": "^8.13.1"

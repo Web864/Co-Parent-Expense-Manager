@@ -1,6 +1,6 @@
 'use strict';
 async function completeDeletion(q,{requestId,backupRetentionDays,reviewNote}){
- if(!/^[a-f0-9-]{36}$/.test(requestId)||!Number.isInteger(backupRetentionDays)||backupRetentionDays<0||backupRetentionDays>36500||typeof reviewNote!=='string'||reviewNote.trim().length<10||reviewNote.length>1000)throw Error('A valid request ID, reviewed retention days and a review note (10–1000 characters) are required.');
+ if(!/^[a-f0-9-]{36}$/.test(requestId)||!Number.isInteger(backupRetentionDays)||backupRetentionDays<0||backupRetentionDays>36500||typeof reviewNote!=='string'||reviewNote.trim().length<10||reviewNote.length>1000)throw Error('A valid request ID, reviewed retention days and a review note (10 to 1000 characters) are required.');
  // Match account request/reset lock order: account first, request second, workspace last.
  const found=await q.query('SELECT user_id FROM cp_deletion_requests WHERE id=$1',[requestId]);if(!found.rows[0])throw Error('Deletion request not found.');
  const userId=found.rows[0].user_id;const account=(await q.query('SELECT id,email FROM cp_users WHERE id=$1 FOR UPDATE',[userId])).rows[0];

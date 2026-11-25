@@ -16,3 +16,31 @@ test('Resend adapter sends server-side credentials, timeout and idempotency head
  const saved=global.fetch;let request;
  try{global.fetch=async(url,options)=>{request={url,options};return {ok:true};};const mailer=createMailer({EMAIL_PROVIDER:'resend',EMAIL_FROM:'qa@example.invalid',RESEND_API_KEY:'TEST_ONLY'},'.');await mailer.send({to:'recipient@example.invalid',subject:'QA',text:'QA message'});assert.equal(request.url,'https://api.resend.com/emails');assert.equal(JSON.parse(request.options.body).from,'qa@example.invalid');assert.match(request.options.headers['Idempotency-Key'],/^[a-f0-9-]{36}$/);assert.equal(request.options.headers.Authorization,'Bearer TEST_ONLY');assert.ok(request.options.signal);global.fetch=async()=>({ok:false});await assert.rejects(()=>mailer.send({to:'recipient@example.invalid',subject:'QA',text:'QA'}),/provider rejected/);}finally{global.fetch=saved;}
 });
+
+test('mail failures expose only safe status/reason and never key, recipient or link',async()=>{
+ const {logMailFailure}=require('../server/mail.cjs');
+ const saved=global.fetch,savedErr=console.error;let logged='';
+ const env={EMAIL_PROVIDER:'resend',EMAIL_FROM:'CoParent <qa@example.invalid>',RESEND_API_KEY:'re_SECRET_TEST_KEY'};
+ try{
+  global.fetch=async()=>({ok:false,status:403,json:async()=>({name:'validation_error',message:'domain not verified for recipient@example.invalid'})});
+  const mailer=createMailer(env,'.');assert.equal(mailer.mode,'resend');
+  await assert.rejects(()=>mailer.send({to:'recipient@example.invalid',subject:'S',text:'https://x/#/account/reset?token=SECRET'}),e=>{
+   assert.equal(e.httpStatus,403);assert.equal(e.reason,'validation_error');
+   console.error=(m)=>{logged+=m;};logMailFailure('reset',e);console.error=savedErr;return true;});
+  assert.ok(logged.includes('validation_error')&&logged.includes('403'));
+  for(const secret of ['re_SECRET_TEST_KEY','recipient@example.invalid','SECRET','domain not verified'])assert.ok(!logged.includes(secret),'log leaked '+secret);
+  global.fetch=async()=>{const e=Error('x');e.name='TimeoutError';throw e;};
+  await assert.rejects(()=>mailer.send({to:'a@example.invalid',subject:'S',text:'T'}),e=>e.reason==='timeout'&&e.provider==='resend');
+  global.fetch=async()=>({ok:false,status:500,json:async()=>{throw Error('not json');}});
+  await assert.rejects(()=>mailer.send({to:'a@example.invalid',subject:'S',text:'T'}),e=>e.httpStatus===500&&e.reason==='unknown');
+ }finally{global.fetch=saved;console.error=savedErr;}
+});
+
+test('production rejects placeholder or malformed sender addresses',()=>{
+ const base={NODE_ENV:'production',EMAIL_PROVIDER:'resend',RESEND_API_KEY:'TEST_ONLY'};
+ assert.throws(()=>createMailer({...base,EMAIL_FROM:'noreply@example.com'},'.'),/placeholder domain/);
+ assert.throws(()=>createMailer({...base,EMAIL_FROM:'CoParent <noreply@example.org>'},'.'),/placeholder domain/);
+ assert.throws(()=>createMailer({...base,EMAIL_FROM:'not-an-address'},'.'),/EMAIL_FROM must be/);
+ assert.equal(createMailer({...base,EMAIL_FROM:'CoParent <noreply@mail.realdomain.test>'},'.').configured(),true);
+ assert.equal(createMailer({EMAIL_PROVIDER:'development',DEV_MAIL_SINK:'true'},'.').mode,'development');
+});

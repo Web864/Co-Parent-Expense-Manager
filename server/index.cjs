@@ -6,7 +6,7 @@ const crypto=require('node:crypto');
 const {Pool}=require('pg');
 const {validateState,checkMutation,summary,error}=require('./ledger.cjs');
 const {createLimiter}=require('./security.cjs');
-const {createMailer}=require('./mail.cjs');
+const {createMailer,logMailFailure}=require('./mail.cjs');
 const {createAccounts,publicUser}=require('./accounts.cjs');
 const root=path.join(__dirname,'..');
 for(const line of (fs.existsSync(path.join(root,'.env'))?fs.readFileSync(path.join(root,'.env'),'utf8'):'').split(/\r?\n/)){
@@ -43,7 +43,14 @@ async function transaction(fn){const client=await pool.connect();try{await clien
 async function session(res,userId,q=pool){const token=crypto.randomBytes(32).toString('hex');await q.query('INSERT INTO cp_sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval \'30 days\')',[sha(token),userId]);cookie(res,token,30*86400);}
 const limit=createLimiter(pool);
 const mailer=createMailer(env,root);
-const accounts=createAccounts({pool,transaction,body,json,error,email,text,origin,session,cookie,limit,mailer,env,workspace});
+// Behind a reverse proxy every request arrives from the proxy IP, which would put all users in one rate-limit bucket.
+// TRUST_PROXY=true opts in to the LAST X-Forwarded-For entry (appended by your own proxy). Keep it false when the app is reachable directly.
+if(env.TRUST_PROXY&&!['true','false'].includes(env.TRUST_PROXY))throw Error('TRUST_PROXY must be true or false.');
+const clientIp=req=>{
+ if(env.TRUST_PROXY==='true'){const parts=String(req.headers['x-forwarded-for']||'').split(',').map(s=>s.trim()).filter(Boolean);const last=parts[parts.length-1];if(last&&last.length<=64&&/^[0-9a-fA-F:.]+$/.test(last))return last;}
+ return req.socket.remoteAddress;
+};
+const accounts=createAccounts({pool,transaction,body,json,error,email,text,origin,session,cookie,limit,mailer,env,workspace,clientIp});
 for(const key of ['AUTH_RATE_LIMIT_MAX','TOKEN_RATE_LIMIT_MAX','EMAIL_RATE_LIMIT_MAX']){
  if(env[key]&&(!Number.isInteger(Number(env[key]))||Number(env[key])<1||Number(env[key])>10000))throw Error(key+' must be an integer from 1 to 10000.');
 }
@@ -159,7 +166,7 @@ async function routes(req,res,url){
    let inviteUrl;try{inviteUrl=new URL(String(x.url));}catch{error(400,'Invalid invite URL.');}
    const permittedOrigins=[origin,...(env.NODE_ENV!=='production'?['http://localhost:5173','http://127.0.0.1:5173']:[])];
    if(!permittedOrigins.includes(inviteUrl.origin)||inviteUrl.hash.indexOf(x.code)===-1)error(400,'Invalid invite URL.');
-   try{await mailer.send({to:invite.invited_email,subject:'CoParent shared workspace invitation',text:'Join your shared workspace: '+inviteUrl.toString()+'\nInvitation expires after 7 days.'});}catch{error(502,'Email delivery failed. Retry or copy the link.');}
+   try{await mailer.send({to:invite.invited_email,subject:'CoParent shared workspace invitation',text:'Join your shared workspace: '+inviteUrl.toString()+'\nInvitation expires after 7 days.'});}catch(e){logMailFailure('invite',e);error(502,'Email delivery failed. Retry or copy the link.');}
    return json(res,200,{accepted:true});
  }
  error(404,'API endpoint not found.');
@@ -168,7 +175,7 @@ function staticFile(req,res,pathname){
  const rel=pathname==='/'?'index.html':pathname.slice(1);
  if(!/^[a-zA-Z0-9_./-]+$/.test(rel)||rel.includes('..')||rel.split('/').some(part=>part.startsWith('.')))return json(res,404,{error:'Not found.'});
  let file=path.join(root,'dist',rel);if(!fs.existsSync(file)&&!path.extname(rel))file=path.join(root,'dist','index.html');
- if(!fs.existsSync(file))return json(res,404,{error:'Build not found. Run npm run build.'});
+ if(!fs.existsSync(file)||!fs.statSync(file).isFile())return json(res,404,{error:'Not found. If the app was never built, run npm run build.'});
  const types={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'};
  const data=fs.readFileSync(file);res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','X-Content-Type-Options':'nosniff','X-Frame-Options':'DENY','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",'Content-Length':data.length,'Cache-Control':'no-cache'});res.end(data);
 }
