@@ -44,3 +44,22 @@ test('production rejects placeholder or malformed sender addresses',()=>{
  assert.equal(createMailer({...base,EMAIL_FROM:'CoParent <noreply@mail.realdomain.test>'},'.').configured(),true);
  assert.equal(createMailer({EMAIL_PROVIDER:'development',DEV_MAIL_SINK:'true'},'.').mode,'development');
 });
+
+test('account email retries only transient failures, reuses one idempotency key, and logs without secrets',async()=>{
+ const {sendWithRetry}=require('../server/mail.cjs');
+ const saved=global.fetch,savedErr=console.error;let logs=[];const keys=[];
+ const mailer=createMailer({EMAIL_PROVIDER:'resend',EMAIL_FROM:'CoParent <qa@example.invalid>',RESEND_API_KEY:'re_SECRET_TEST_KEY'},'.');
+ const message={to:'recipient@example.invalid',subject:'S',text:'https://x/#/account/reset?token=SECRET'};
+ const fast={kind:'reset',sleep:async()=>{}};
+ const respond=(...statuses)=>{let i=0;global.fetch=async(url,init)=>{keys.push(init.headers['Idempotency-Key']);const status=statuses[Math.min(i++,statuses.length-1)];return status===200?{ok:true,status}:{ok:false,status,json:async()=>({name:status===503?'application_error':'validation_error'})};};};
+ console.error=m=>logs.push(m);
+ try{
+  respond(503,200);await sendWithRetry(mailer,message,fast);
+  assert.equal(keys.length,2);assert.equal(keys[0],keys[1],'idempotency key must be reused');
+  keys.length=0;logs=[];respond(403);await assert.rejects(()=>sendWithRetry(mailer,message,fast),e=>e.httpStatus===403);
+  assert.equal(keys.length,1,'4xx must not be retried');
+  keys.length=0;logs=[];respond(500);await assert.rejects(()=>sendWithRetry(mailer,message,fast),e=>e.httpStatus===500);
+  assert.equal(keys.length,3,'3 attempts total');assert.ok(logs.some(l=>l.includes('"willRetry":false')&&l.includes('"attempt":3')));
+  for(const l of logs)for(const secret of ['re_SECRET_TEST_KEY','recipient@example.invalid','SECRET'])assert.ok(!l.includes(secret),'log leaked '+secret);
+ }finally{global.fetch=saved;console.error=savedErr;}
+});

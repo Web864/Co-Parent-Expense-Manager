@@ -24,7 +24,7 @@ Fixes made: proxy-safe rate limiting, diagnosable mail failures, honest developm
 
 ## Remaining issues (not fixed)
 
-- **P2:** Account emails are sent fire-and-forget after the response, with no durable outbox or automatic retry. A provider outage means the user must use the rate-limited resend. Needs a product decision (queue or job table).
+- **P2 (partly resolved, see follow-up):** account emails are retried in-process for transient failures only; a restart during the retry window loses the retry, and there is no bounce/delivery webhook handling.
 - **P3:** Login is limited per email as well as per IP, so someone can deliberately trigger lockouts for a known address (15-minute window). Standard trade-off; consider CAPTCHA or progressive delay.
 - **P3:** Sessions are fixed 30-day with no idle timeout or rotation; cookie is not `__Host-` prefixed; HSTS has no `includeSubDomains`/preload. Acceptable for private beta.
 - **P3 (resolved in the UI/UX pass below):** fonts are now self-hosted and the CSP no longer allows Google.
@@ -87,3 +87,12 @@ Visual-fidelity notes: radii were snapped by at most 1px onto a 7-step scale (ab
 Results (this pass): `tsc` clean, build OK, unit 16/16, accounts 25/25, integration 24/24, browser 217 checks (213 + 4 new), e2e 29. UI audit: 98 width/view checks including 2560px; 200% and 400% zoom reflow (1280 and 1920 base, plus 200% root text size) with no horizontal scroll; forced-colors and reduced-motion emulation.
 
 Limits: the contrast scan covers rendered text in the tested screens and states, not placeholders, hover/disabled states or pseudo-element text. Forced-colors was checked by a heuristic (controls keep a border, outline or fill), not by visual review. 400% zoom was emulated with a narrower viewport. No screen reader, real-device, Core Web Vitals or Windows high-contrast testing. About 110 one-off colour literals remain in the CSS (near-duplicate shades that would change appearance if merged). The font has no metric-matched fallback, so a brief layout shift is possible before it loads; the preload makes this unlikely but it was not measured.
+
+## Follow-up pass: email retry and CI (25 November 2026)
+
+| ID | Priority | Issue | Action | Verification |
+|---|---|---|---|---|
+| F-01 | P2 | Account email was single-attempt; a brief provider blip meant the user had to request a resend. | `sendWithRetry`: up to 3 attempts for timeout, network, 429 and 5xx only, backoff about 2 s and 15 s, one idempotency key reused. A database outbox was rejected on purpose: it would persist raw verify/reset links next to hashed tokens. | New unit test: 503 then 200 sends twice with the same key; 403 sends once; persistent 500 stops at 3 attempts; logs contain no key, address or link. |
+| F-02 | P2 | No CI. | `.github/workflows/ci.yml`: tsc, build, unit, online `npm audit --audit-level=high`, accounts and integration on **PostgreSQL 18** with PG 18 client tools, migrate then restore validation, browser, e2e, UI audit; failure screenshots kept 7 days. | YAML parses; the same command sequence passed locally on PostgreSQL 16 (unit 17/17, accounts 25/25, integration 24/24, restore validation over 9 tables, browser 217, e2e 29, UI audit 0 contrast failures). **The workflow itself has not run on GitHub yet**, so PostgreSQL 18 compatibility is still unverified until the first run. |
+
+Still open from the earlier list: real Resend delivery test, bounce/delivery webhooks, hosted HTTPS/proxy and managed-database TLS checks, off-host backups, session idle timeout and `__Host-` cookie, per-email login lockout trade-off, real-device and screen-reader testing, Core Web Vitals.

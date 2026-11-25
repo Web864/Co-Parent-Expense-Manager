@@ -1,7 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const {hashPassword,passwordMatches,passwordValid,sha}=require('./security.cjs');
-const {logMailFailure}=require('./mail.cjs');
+const {sendWithRetry}=require('./mail.cjs');
 const GENERIC='If the address is eligible, an email will arrive with the next steps. Check your inbox and spam folder.';
 const DEV_NOTICE=' Development mail mode: no real email is sent. Messages are saved only to the private local mail sink on this machine.';
 const POLICY_VERSION='2026-11-24-draft';
@@ -23,7 +23,7 @@ function createAccounts({pool,transaction,body,json,error,email,text,origin,sess
   if(!issued)return;
   // Fragment tokens are not sent as HTTP URL paths, query strings or Referrer headers.
   const link=origin+'/#/account/'+kind+'?token='+token;
-  setImmediate(()=>{void mailer.send({to:user.email,subject:kind==='verify'?'Verify your CoParent email':'Reset your CoParent password',text:(kind==='verify'?'Verify your email within 24 hours: ':'Reset your password within 30 minutes: ')+link+'\nIf you did not request this, ignore this message.'}).catch(e=>logMailFailure(kind,e));});
+  setImmediate(()=>{void sendWithRetry(mailer,{to:user.email,subject:kind==='verify'?'Verify your CoParent email':'Reset your CoParent password',text:(kind==='verify'?'Verify your email within 24 hours: ':'Reset your password within 30 minutes: ')+link+'\nIf you did not request this, ignore this message.'},{kind}).catch(()=>{/* failure already logged with attempt count */});});
  }
  async function consume(req,x,kind){
   await limit(kind+'-submit',clientIp(req),Number(env.TOKEN_RATE_LIMIT_MAX||20),900);

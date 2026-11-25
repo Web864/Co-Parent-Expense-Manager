@@ -13,9 +13,9 @@ function createMailer(env,root){
   if(['example.com','example.org','example.net'].includes(domain.toLowerCase()))throw Error('EMAIL_FROM still uses a placeholder domain. Use a sender on your Resend-verified domain.');
  }
  const configured=()=>provider==='resend'?!!(env.RESEND_API_KEY&&from):env.DEV_MAIL_SINK==='true';
- async function send({to,subject,text}){
+ async function send({to,subject,text},{idempotencyKey}={}){
   if(!configured())throw Error('Email delivery is not configured.');
-  const id=crypto.randomUUID();
+  const id=idempotencyKey||crypto.randomUUID();
   if(provider==='development'){
    const directory=path.join(root,'artifacts','mail-sink');await fs.mkdir(directory,{recursive:true});
    await fs.writeFile(path.join(directory,id+'.json'),JSON.stringify({id,to,subject,text,createdAt:new Date().toISOString()}),{mode:0o600,flag:'wx'});
@@ -34,5 +34,17 @@ function createMailer(env,root){
  return {send,configured,mode:provider};
 }
 // Safe, secret-free diagnostics for operators.
-function logMailFailure(kind,e){console.error(JSON.stringify({level:'error',event:'mail_delivery_failed',kind,provider:e&&e.provider||'unknown',httpStatus:e&&e.httpStatus||null,reason:e&&e.reason||(e&&e.message)||'unknown'}));}
-module.exports={createMailer,logMailFailure};
+function logMailFailure(kind,e,meta={}){console.error(JSON.stringify({level:'error',event:'mail_delivery_failed',kind,provider:e&&e.provider||'unknown',httpStatus:e&&e.httpStatus||null,reason:e&&e.reason||(e&&e.message)||'unknown',...meta}));}
+// Only failures that can succeed later are retried: timeouts, network errors, HTTP 429 and 5xx. Configuration/validation errors (401/403/422...) are not.
+const isTransient=e=>!!e&&(e.reason==='timeout'||e.reason==='network'||e.httpStatus===429||e.httpStatus>=500);
+const defaultSleep=ms=>new Promise(resolve=>{const t=setTimeout(resolve,ms);if(t.unref)t.unref();});
+// In-process retry with backoff. Deliberately NOT a database outbox: a pending outbox row would hold the raw verify/reset link, undoing the hashed-token design.
+// One idempotency key is reused across attempts so the provider cannot deliver duplicates. Retries are lost if the process restarts; the user can use the rate-limited resend.
+async function sendWithRetry(mailer,message,{kind='mail',delays=[2000,15000],sleep=defaultSleep}={}){
+ const idempotencyKey=crypto.randomUUID();
+ for(let attempt=1;;attempt++){
+  try{return await mailer.send(message,{idempotencyKey});}
+  catch(e){const willRetry=isTransient(e)&&attempt<=delays.length;logMailFailure(kind,e,{attempt,willRetry});if(!willRetry)throw e;await sleep(delays[attempt-1]);}
+ }
+}
+module.exports={createMailer,logMailFailure,sendWithRetry,isTransient};
